@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Painel Administrativo — MAGNATUNS (MVP)</title>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#d4af37; --accent-2:#c72424;
+      --glass: rgba(255,255,255,0.03); --success:#22c55e; --danger:#ef4444; --white:#f8fafc;
+      font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box; transition: all 0.12s ease;}
+    html,body{height:100%; margin:0; background:linear-gradient(180deg,#071025 0%, #071225 70%); color:var(--white); -webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .app {display:grid; grid-template-columns:280px 1fr; gap:20px; min-height:100vh; padding:28px;}
+
+    /* Sidebar */
+    .sidebar{background:var(--card); border-radius:16px; padding:24px; box-shadow:0 10px 25px rgba(2,6,23,0.6); display:flex; flex-direction:column; justify-content:space-between;}
+    .logo{display:flex; align-items:center; gap:14px; margin-bottom:24px;}
+    .logo .badge{background:linear-gradient(90deg,var(--accent),#ffdd7b); width:48px;height:48px;border-radius:12px; display:flex;align-items:center;justify-content:center;font-weight:700;color:#071225; font-size:18px;}
+    .logo h1{font-size:18px;margin:0; font-weight:700;}
+    nav a{display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;color:var(--white);margin-bottom:8px; font-size:14px;}
+    nav a.active, nav a:hover{background:linear-gradient(90deg, rgba(212,175,55,0.1), rgba(255,255,255,0.03));}
+
+    /* Main */
+    .main{display:flex;flex-direction:column; gap:20px;}
+    .topbar{display:flex;justify-content:space-between;align-items:center; gap:16px;}
+    .search{display:flex;align-items:center;gap:10px;background:var(--glass);padding:10px 14px;border-radius:12px;width:420px;box-shadow:0 2px 6px rgba(0,0,0,0.3);}
+    .search input{background:transparent;border:0;outline:none;color:var(--white);width:100%; font-size:14px;}
+    .card-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:18px;border-radius:12px; box-shadow: 0 6px 15px rgba(2,6,23,0.6);}
+    .card h3{margin:0;font-size:14px;color:var(--muted);}
+    .card .value{font-size:22px;margin-top:8px;font-weight:700; color:#ffd77a;}
+    .card .tiny{color:var(--muted); font-size:12px;}
+
+    /* content split */
+    .content{display:grid;grid-template-columns: 2fr 1fr; gap:16px;}
+    .panel{background:var(--card); border-radius:14px; padding:16px; min-height:120px; box-shadow:0 4px 12px rgba(2,6,23,0.5);}
+    .table{width:100%;border-collapse:collapse;}
+    table thead th{font-size:13px;color:var(--muted); text-align:left; padding:10px; border-bottom:1px solid rgba(255,255,255,0.04);}
+    table tbody td{padding:12px;color:var(--white);font-size:14px;border-bottom:1px solid rgba(255,255,255,0.02);}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.03);font-size:13px; font-weight:600;}
+    .pill.green{background:rgba(34,197,94,0.15); color:var(--success);}
+    .pill.red{background:rgba(239,68,68,0.1); color:var(--danger);}
+    .tiny{font-size:12px;color:var(--muted);}
+
+    /* actions */
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:10px;color:var(--white);cursor:pointer; font-weight:600;}
+    button:hover{background:rgba(255,255,255,0.03);}
+    .btn-primary{background:linear-gradient(90deg,var(--accent), #ffd77a); color:#071225;border:0; font-weight:700;}
+    .btn-primary:hover{opacity:0.95;}
+    .btn-danger{background:transparent;border:1px solid rgba(255,0,0,0.09); color:var(--danger);}
+
+    /* charts */
+    .chart{height:180px;width:100%;display:block;}
+    .legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;}
+    .legend .item{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);}
+    .dot{width:12px;height:12px;border-radius:3px;}
+
+    /* right column */
+    .right-col .box{margin-bottom:14px;}
+    .countdown{font-size:28px;font-weight:700;}
+    .small{font-size:12px;color:var(--muted);}
+    footer{margin-top:14px;text-align:center;color:var(--muted);font-size:13px;}
+
+    /* notes panel inside right-col */
+    #notesArea{margin-top:12px;}
+    #notesArea textarea{width:100%;min-height:160px;padding:12px;border-radius:8px;background:#05050a;border:1px solid rgba(255,255,255,0.03);color:#fff}
+
+    /* responsive */
+    @media (max-width:980px){
+      .app{grid-template-columns:1fr; padding:16px}
+      .card-row{grid-template-columns:repeat(2,1fr)}
+      .content{grid-template-columns:1fr}
+    }
+
+    /* Login modal */
+    #loginOverlay{
+      position:fixed;left:0;top:0;right:0;bottom:0;background:linear-gradient(90deg, rgba(2,6,23,0.95), rgba(2,6,23,0.95));display:flex;align-items:center;justify-content:center;z-index:9999;
+    }
+    #loginBox{width:420px;background:#071225;padding:24px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 20px 80px rgba(0,0,0,0.8)}
+    #loginBox input{width:100%;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:#05050a;color:#fff;margin-top:8px}
+    #loginBox button{margin-top:12px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" aria-label="Navegação">
+      <div>
+        <div class="logo">
+          <div class="badge">M</div>
+          <div>
+            <h1>MAGNATUNS</h1>
+            <div class="tiny">Painel Administrativo</div>
+          </div>
+        </div>
+
+        <nav>
+          <a href="#" class="active" onclick="showSection('resumo')">Resumo</a>
+          <a href="#" onclick="showSection('clientes')">Clientes</a>
+          <a href="#" onclick="showSection('apis')">APIs</a>
+          <a href="#" onclick="showSection('faturamento')">Faturamento</a>
+          <a href="#" onclick="showSection('relatorios')">Relatórios</a>
+        </nav>
+      </div>
+
+      <div>
+        <hr style="border:none;margin:12px 0;border-top:1px solid rgba(255,255,255,0.03)">
+        <div class="tiny">Acesso: Superadministrador</div>
+        <div style="margin-top:12px">
+          <button onclick="downloadCSV()">Exportar clientes (CSV)</button>
+          <button onclick="exportJSON()" style="margin-left:8px">Exportar JSON</button>
+          <button onclick="importJSON()" style="margin-left:8px">Importar JSON</button>
+          <input id="fileInput" type="file" accept="application/json" style="display:none" />
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="topbar">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="search" title="Pesquisar clientes">
+            🔎 <input id="pesquisa" placeholder="Pesquisar cliente, site ou e-mail" oninput="filtrar()">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-primary" onclick="novoCliente()">+ Novo cliente</button>
+            <button onclick="abrirConfiguracoes()">Configurações</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="text-align:right">
+            <div class="tiny">MRR</div>
+            <div style="font-weight:700;font-size:18px">R$ <span id="mrr">0</span></div>
+          </div>
+          <div style="text-align:right">
+            <div class="tiny">Clientes ativos</div>
+            <div style="font-weight:700;font-size:18px"><span id="clientesCount">0</span></div>
+          </div>
+          <div style="width:46px;height:46px;border-radius:12px;background:var(--glass);display:flex;align-items:center;justify-content:center; cursor:pointer;" onclick="abrirConfiguracoes()">⚙️</div>
+        </div>
+      </div>
+
+      <!-- CARDS -->
+      <div id="resumo" class="card-row"></div>
+
+      <!-- CONTENT -->
+      <div class="content">
+        <section>
+          <div id="clientes" class="panel">
+            <h2 style="margin-top:0">Clientes</h2>
+            <div style="margin-bottom:12px; display:flex;justify-content:space-between;align-items:center">
+              <div class="tiny">Tabela de clientes com ações rápidas</div>
+              <div><button onclick="mostrarApenasEmDemo()">Mostrar apenas demo</button></div>
+            </div>
+            <div style="overflow:auto; max-height:420px">
+              <table class="table" id="tabelaClientes">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Site / Link</th>
+                    <th>Status</th>
+                    <th>API</th>
+                    <th>Tokens (Mês)</th>
+                    <th>Usado</th>
+                    <th>Próx. cobrança</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="clientesBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:12px">
+            <h3 style="margin:0 0 8px 0">Uso de tokens — top 8 clientes</h3>
+            <canvas id="barraTokens" class="chart"></canvas>
+            <div class="legend" id="legendaTokens"></div>
+          </div>
+        </section>
+
+        <aside class="right-col">
+          <div class="panel box">
+            <h3 style="margin:0 0 6px 0">Detalhe rápido</h3>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="tiny">Cliente selecionado</div>
+                <div id="clienteSelecionadoName" style="font-weight:700">Nenhum</div>
+                <div class="tiny" id="clienteSelecionadoEmail"></div>
+              </div>
+              <div style="text-align:right">
+                <div class="tiny">Tokens restantes</div>
+                <div id="tokensRestantes" style="font-weight:700;font-size:18px">—</div>
+                <div class="tiny">Limite / Mês</div>
+              </div>
+            </div>
+
+            <div style="margin-top:12px; display:flex;gap:8px">
+              <button onclick="forcarSwap()" class="btn-primary">Forçar ativação (pago)</button>
+              <button onclick="suspenderCliente()" class="btn-danger">Suspender</button>
+            </div>
+
+            <!-- NOTES area will be injected here by JS -->
+            <div id="notesArea"></div>
+          </div>
+
+          <div class="panel box">
+            <h3 style="margin:0 0 8px 0">Fluxo de cobrança</h3>
+            <div class="tiny">Saldo estimado por cliente (R$80)</div>
+            <div style="margin-top:8px">
+              <div class="tiny">Estimativa de requests com R$80 (85 tokens por request)</div>
+              <div style="font-weight:700;margin-top:6px" id="estimativaRequests">-- requests</div>
+            </div>
+            <hr style="border:none;margin:12px 0;border-top:1px solid rgba(255,255,255,0.03)">
+            <div class="tiny">Clientes próximos à cobrança:</div>
+            <ul id="listaVencimentos" style="margin:8px 0 0 16px"></ul>
+          </div>
+
+          <div class="panel box">
+            <h3 style="margin:0 0 8px 0">Gráfico de crescimento</h3>
+            <canvas id="linhaCrescimento" class="chart"></canvas>
+            <div class="tiny" style="margin-top:8px">Crescimento de clientes mês a mês</div>
+          </div>
+        </aside>
+      </div>
+
+      <footer>MAGNATUNS • Painel MVP — protegido. Apenas administradores.</footer>
+    </main>
+  </div>
+
+  <!-- Login overlay (injetado by JS) -->
+  <div id="loginOverlay" style="display:none;">
+    <div id="loginBox">
+      <h3>Entrar — Painel MAGNATUNS</h3>
+      <div class="tiny">Digite a senha para acessar.</div>
+      <input id="loginPassword" type="password" placeholder="Senha" />
+      <div style="display:flex;gap:8px; margin-top:12px">
+        <button class="btn-primary" id="loginBtn">Entrar</button>
+        <button id="btnUseDefault" class="btn-ghost">Usar demo</button>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted)">Senha padrão: <strong>admin123</strong> (altere nas configurações)</div>
+    </div>
+  </div>
+
+  <script>
+  /************************************************************************
+   * Painel MAGNATUNS — Script principal
+   * - Persistência: localStorage (chave: magnatuns_data_v1)
+   * - Login simples: senha padrão 'admin123' (configurável via settings)
+   * - Clientes: criar/editar/remover, painel lateral de notas
+   * - Export/Import JSON + Export CSV
+   * - Gráficos: Chart.js (tokens e crescimento)
+   ************************************************************************/
+
+  (function(){
+    // ---- constants & storage key
+    const STORAGE_KEY = 'magnatuns_data_v1';
+    const AUTH_KEY = 'magnatuns_auth_v1';
+    const DEFAULT_PASSWORD = 'admin123';
+
+    // DOM shortcuts
+    const clientesBody = document.getElementById('clientesBody');
+    const clientesCountEl = document.getElementById('clientesCount');
+    const mrrEl = document.getElementById('mrr');
+    const pesquisaEl = document.getElementById('pesquisa');
+    const clienteSelecionadoName = document.getElementById('clienteSelecionadoName');
+    const clienteSelecionadoEmail = document.getElementById('clienteSelecionadoEmail');
+    const tokensRestantesEl = document.getElementById('tokensRestantes');
+    const listaVencimentos = document.getElementById('listaVencimentos');
+    const estimativaRequestsEl = document.getElementById('estimativaRequests');
+    const notesArea = document.getElementById('notesArea');
+    const rawBarCtx = document.getElementById('barraTokens');
+    const rawLineCtx = document.getElementById('linhaCrescimento');
+
+    let data = { clients: [] }; // structure: { clients: [ {id, name, site, status, apiKey, tokensLimit, tokensUsed, nextBilling (ISO), notes, createdAt} ] }
+    let selectedClientId = null;
+    let tokenBarChart = null;
+    let growthLineChart = null;
+
+    // ---- init
+    function init(){
+      loadData();
+      ensureElements();
+      renderAll();
+      bindUI();
+      showLoginIfNeeded();
+    }
+
+    function ensureElements(){
+      // inject notes UI (if not present)
+      if(!document.getElementById('notesTextarea')){
+        const box = document.createElement('div');
+        box.innerHTML = `
+          <h3 style="margin-top:12px;margin-bottom:8px">Notas</h3>
+          <textarea id="notesTextarea" placeholder="Anotações do cliente (salvam automaticamente)"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="btnSaveNotes" class="btn-primary">Salvar</button>
+            <button id="btnExportClientJSON">Exportar cliente</button>
+            <button id="btnDeleteClient" class="btn-danger">Excluir Cliente</button>
+          </div>
+        `;
+        notesArea.appendChild(box);
+      }
+    }
+
+    // ---- storage
+    function loadData(){
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(raw){
+          data = JSON.parse(raw);
+        } else {
+          data = { clients: sampleData() }; // seed sample for first run
+          saveData();
+        }
+      } catch(e){
+        console.error('Erro ao carregar dados:', e);
+        data = { clients: [] };
+      }
+    }
+    function saveData(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      renderAll();
+    }
+
+    function sampleData(){
+      const now = Date.now();
+      return [
+        { id: genId(), name:'Cliente Demo A', site:'https://demo-a.com', status:'active', apiKey:'gsk_demo_a', tokensLimit:50000, tokensUsed:12340, nextBilling: addDaysISO(now, 9), notes:'Notas iniciais do Cliente A', createdAt: now-1000*60*60*24*30 },
+        { id: genId(), name:'Cliente Demo B', site:'https://demo-b.com', status:'active', apiKey:'gsk_demo_b', tokensLimit:30000, tokensUsed:28900, nextBilling: addDaysISO(now, 2), notes:'Cliente B - atenção ao plano', createdAt: now-1000*60*60*24*60 },
+        { id: genId(), name:'Cliente Demo C', site:'https://demo-c.com', status:'suspended', apiKey:'', tokensLimit:10000, tokensUsed:200, nextBilling: addDaysISO(now, 20), notes:'Conta suspensa', createdAt: now-1000*60*60*24*10 }
+      ];
+    }
+
+    // ---- util
+    function genId(){ return 'c_' + Math.random().toString(36).slice(2,9); }
+    function addDaysISO(base, days){ return new Date(base + days*24*3600000).toISOString().slice(0,10); }
+    function formatDate(iso){ if(!iso) return '—'; try { const d = new Date(iso); return d.toLocaleDateString(); } catch(e){ return iso; } }
+
+    // ---- render
+    function renderAll(){
+      renderSummaryCards();
+      renderClientsTable();
+      renderCharts();
+      updateRightPanel(); // refresh selected client UI
+      updateCounts();
+    }
+
+    function renderSummaryCards(){
+      const resumen = document.getElementById('resumo');
+      const totalMRR = calculateMRR();
+      resumen.innerHTML = '';
+      const cards = [
+        { title:'MRR (estimado)', value:'R$ ' + totalMRR.toFixed(2) },
+        { title:'Clientes totais', value: data.clients.length },
+        { title:'Clientes ativos', value: data.clients.filter(c=>c.status==='active').length },
+        { title:'Clientes suspensos', value: data.clients.filter(c=>c.status==='suspended').length }
+      ];
+      cards.forEach(c=>{
+        const div = document.createElement('div'); div.className='card';
+        div.innerHTML = `<h3>${c.title}</h3><div class="value">${c.value}</div>`;
+        resumen.appendChild(div);
+      });
+    }
+
+    function calculateMRR(){
+      // simplistic: each active client contributes R$80
+      const active = data.clients.filter(c=>c.status==='active').length;
+      return active * 80;
+    }
+
+    function updateCounts(){
+      document.getElementById('clientesCount').textContent = data.clients.length;
+      mrrEl.textContent = calculateMRR().toFixed(0);
+    }
+
+    function renderClientsTable(){
+      const q = pesquisaEl.value.trim().toLowerCase();
+      clientesBody.innerHTML = '';
+      const clients = data.clients.filter(c=>{
+        if(!q) return true;
+        return (c.name || '').toLowerCase().includes(q) || (c.site||'').toLowerCase().includes(q) || (c.apiKey||'').toLowerCase().includes(q);
+      });
+
+      clients.forEach(c=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(c.name)}</strong><div class="tiny">${escapeHtml(c.site || '')}</div></td>
+          <td>${c.site ? `<a href="${c.site}" target="_blank">${c.site.replace(/^https?:\/\//,'')}</a>` : '—'}</td>
+          <td><span class="pill ${c.status==='active'?'green':'red'}" style="cursor:pointer" onclick="toggleStatus('${c.id}')">${c.status}</span></td>
+          <td>${c.apiKey ? '✓' : '—'}</td>
+          <td>${(c.tokensLimit||0).toLocaleString()}</td>
+          <td>${(c.tokensUsed||0).toLocaleString()}</td>
+          <td>${formatDate(c.nextBilling)}</td>
+          <td>
+            <button onclick="selectClient('${c.id}')">Abrir</button>
+            <button onclick="editarCliente('${c.id}')">Editar</button>
+            <button onclick="excluirCliente('${c.id}')">Remover</button>
+          </td>
+        `;
+        clientesBody.appendChild(tr);
+      });
+    }
+
+    function escapeHtml(str){ if(!str) return ''; return String(str).replace(/[&<>"]/g, s=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[s])); }
+
+    // ---- selection & notes
+    window.selectClient = function(id){
+      selectedClientId = id;
+      updateRightPanel();
+      // scroll to detail
+      document.getElementById('clienteSelecionadoName').scrollIntoView({behavior:'smooth',block:'center'});
+    };
+
+    function updateRightPanel(){
+      const client = data.clients.find(c=>c.id===selectedClientId) || null;
+      if(client){
+        clienteSelecionadoName.textContent = client.name;
+        clienteSelecionadoEmail.textContent = client.site || '';
+        tokensRestantesEl.textContent = ((client.tokensLimit||0) - (client.tokensUsed||0)).toLocaleString();
+        estimativaRequestsEl.textContent = Math.max(0, Math.floor((80*1000) / 85)) + ' (exemplo)'; // simplistic
+        // notes area
+        const notesTextarea = document.getElementById('notesTextarea');
+        if(notesTextarea) notesTextarea.value = client.notes || '';
+        // attach save
+        document.getElementById('btnSaveNotes').onclick = ()=> {
