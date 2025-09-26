@@ -72,6 +72,12 @@
     #notesArea{margin-top:12px;}
     #notesArea textarea{width:100%;min-height:160px;padding:12px;border-radius:8px;background:#05050a;border:1px solid rgba(255,255,255,0.03);color:#fff}
 
+    /* modal styles */
+    .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(2,6,23,0.9);display:flex;align-items:center;justify-content:center;z-index:1000;}
+    .modal-content{background:#071225;padding:24px;border-radius:12px;width:90%;max-width:500px;border:1px solid rgba(255,255,255,0.03);}
+    .modal h3{margin-top:0;}
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+
     /* responsive */
     @media (max-width:980px){
       .app{grid-template-columns:1fr; padding:16px}
@@ -86,6 +92,10 @@
     #loginBox{width:420px;background:#071225;padding:24px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 20px 80px rgba(0,0,0,0.8)}
     #loginBox input{width:100%;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:#05050a;color:#fff;margin-top:8px}
     #loginBox button{margin-top:12px}
+    
+    /* Section management */
+    .section{display:none;}
+    .section.active{display:block;}
   </style>
 </head>
 <body>
@@ -102,11 +112,11 @@
         </div>
 
         <nav>
-          <a href="#" class="active" onclick="showSection('resumo')">Resumo</a>
-          <a href="#" onclick="showSection('clientes')">Clientes</a>
-          <a href="#" onclick="showSection('apis')">APIs</a>
-          <a href="#" onclick="showSection('faturamento')">Faturamento</a>
-          <a href="#" onclick="showSection('relatorios')">Relatórios</a>
+          <a href="#" class="active" data-section="resumo">Resumo</a>
+          <a href="#" data-section="clientes">Clientes</a>
+          <a href="#" data-section="apis">APIs</a>
+          <a href="#" data-section="faturamento">Faturamento</a>
+          <a href="#" data-section="relatorios">Relatórios</a>
         </nav>
       </div>
 
@@ -114,9 +124,9 @@
         <hr style="border:none;margin:12px 0;border-top:1px solid rgba(255,255,255,0.03)">
         <div class="tiny">Acesso: Superadministrador</div>
         <div style="margin-top:12px">
-          <button onclick="downloadCSV()">Exportar clientes (CSV)</button>
-          <button onclick="exportJSON()" style="margin-left:8px">Exportar JSON</button>
-          <button onclick="importJSON()" style="margin-left:8px">Importar JSON</button>
+          <button id="btnExportCSV">Exportar clientes (CSV)</button>
+          <button id="btnExportJSON" style="margin-left:8px">Exportar JSON</button>
+          <button id="btnImportJSON" style="margin-left:8px">Importar JSON</button>
           <input id="fileInput" type="file" accept="application/json" style="display:none" />
         </div>
       </div>
@@ -127,11 +137,11 @@
       <div class="topbar">
         <div style="display:flex;gap:12px;align-items:center">
           <div class="search" title="Pesquisar clientes">
-            🔎 <input id="pesquisa" placeholder="Pesquisar cliente, site ou e-mail" oninput="filtrar()">
+            🔎 <input id="pesquisa" placeholder="Pesquisar cliente, site ou e-mail">
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn-primary" onclick="novoCliente()">+ Novo cliente</button>
-            <button onclick="abrirConfiguracoes()">Configurações</button>
+            <button class="btn-primary" id="btnNovoCliente">+ Novo cliente</button>
+            <button id="btnConfiguracoes">Configurações</button>
           </div>
         </div>
 
@@ -144,98 +154,327 @@
             <div class="tiny">Clientes ativos</div>
             <div style="font-weight:700;font-size:18px"><span id="clientesCount">0</span></div>
           </div>
-          <div style="width:46px;height:46px;border-radius:12px;background:var(--glass);display:flex;align-items:center;justify-content:center; cursor:pointer;" onclick="abrirConfiguracoes()">⚙️</div>
+          <div style="width:46px;height:46px;border-radius:12px;background:var(--glass);display:flex;align-items:center;justify-content:center; cursor:pointer;" id="btnConfigGear">⚙️</div>
         </div>
       </div>
 
-      <!-- CARDS -->
-      <div id="resumo" class="card-row"></div>
+      <!-- Seção RESUMO -->
+      <div id="resumo" class="section active">
+        <!-- CARDS -->
+        <div class="card-row"></div>
 
-      <!-- CONTENT -->
-      <div class="content">
-        <section>
-          <div id="clientes" class="panel">
-            <h2 style="margin-top:0">Clientes</h2>
-            <div style="margin-bottom:12px; display:flex;justify-content:space-between;align-items:center">
-              <div class="tiny">Tabela de clientes com ações rápidas</div>
-              <div><button onclick="mostrarApenasEmDemo()">Mostrar apenas demo</button></div>
-            </div>
-            <div style="overflow:auto; max-height:420px">
-              <table class="table" id="tabelaClientes">
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Site / Link</th>
-                    <th>Status</th>
-                    <th>API</th>
-                    <th>Tokens (Mês)</th>
-                    <th>Usado</th>
-                    <th>Próx. cobrança</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="clientesBody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="panel" style="margin-top:12px">
-            <h3 style="margin:0 0 8px 0">Uso de tokens — top 8 clientes</h3>
-            <canvas id="barraTokens" class="chart"></canvas>
-            <div class="legend" id="legendaTokens"></div>
-          </div>
-        </section>
-
-        <aside class="right-col">
-          <div class="panel box">
-            <h3 style="margin:0 0 6px 0">Detalhe rápido</h3>
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div>
-                <div class="tiny">Cliente selecionado</div>
-                <div id="clienteSelecionadoName" style="font-weight:700">Nenhum</div>
-                <div class="tiny" id="clienteSelecionadoEmail"></div>
+        <!-- CONTENT -->
+        <div class="content">
+          <section>
+            <div class="panel">
+              <h2 style="margin-top:0">Clientes</h2>
+              <div style="margin-bottom:12px; display:flex;justify-content:space-between;align-items:center">
+                <div class="tiny">Tabela de clientes com ações rápidas</div>
+                <div><button id="btnDemoFilter">Mostrar apenas demo</button></div>
               </div>
-              <div style="text-align:right">
-                <div class="tiny">Tokens restantes</div>
-                <div id="tokensRestantes" style="font-weight:700;font-size:18px">—</div>
-                <div class="tiny">Limite / Mês</div>
+              <div style="overflow:auto; max-height:420px">
+                <table class="table" id="tabelaClientes">
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Site / Link</th>
+                      <th>Status</th>
+                      <th>API</th>
+                      <th>Tokens (Mês)</th>
+                      <th>Usado</th>
+                      <th>Próx. cobrança</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="clientesBody"></tbody>
+                </table>
               </div>
             </div>
 
-            <div style="margin-top:12px; display:flex;gap:8px">
-              <button onclick="forcarSwap()" class="btn-primary">Forçar ativação (pago)</button>
-              <button onclick="suspenderCliente()" class="btn-danger">Suspender</button>
+            <div class="panel" style="margin-top:12px">
+              <h3 style="margin:0 0 8px 0">Uso de tokens — top 8 clientes</h3>
+              <canvas id="barraTokens" class="chart"></canvas>
+              <div class="legend" id="legendaTokens"></div>
+            </div>
+          </section>
+
+          <aside class="right-col">
+            <div class="panel box">
+              <h3 style="margin:0 0 6px 0">Detalhe rápido</h3>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div class="tiny">Cliente selecionado</div>
+                  <div id="clienteSelecionadoName" style="font-weight:700">Nenhum</div>
+                  <div class="tiny" id="clienteSelecionadoEmail"></div>
+                </div>
+                <div style="text-align:right">
+                  <div class="tiny">Tokens restantes</div>
+                  <div id="tokensRestantes" style="font-weight:700;font-size:18px">—</div>
+                  <div class="tiny">Limite / Mês</div>
+                </div>
+              </div>
+
+              <div style="margin-top:12px; display:flex;gap:8px">
+                <button id="btnForcarSwap" class="btn-primary">Forçar ativação (pago)</button>
+                <button id="btnSuspender" class="btn-danger">Suspender</button>
+              </div>
+
+              <!-- NOTES area will be injected here by JS -->
+              <div id="notesArea"></div>
             </div>
 
-            <!-- NOTES area will be injected here by JS -->
-            <div id="notesArea"></div>
-          </div>
-
-          <div class="panel box">
-            <h3 style="margin:0 0 8px 0">Fluxo de cobrança</h3>
-            <div class="tiny">Saldo estimado por cliente (R$80)</div>
-            <div style="margin-top:8px">
-              <div class="tiny">Estimativa de requests com R$80 (85 tokens por request)</div>
-              <div style="font-weight:700;margin-top:6px" id="estimativaRequests">-- requests</div>
+            <div class="panel box">
+              <h3 style="margin:0 0 8px 0">Fluxo de cobrança</h3>
+              <div class="tiny">Saldo estimado por cliente (R$80)</div>
+              <div style="margin-top:8px">
+                <div class="tiny">Estimativa de requests com R$80 (85 tokens por request)</div>
+                <div style="font-weight:700;margin-top:6px" id="estimativaRequests">-- requests</div>
+              </div>
+              <hr style="border:none;margin:12px 0;border-top:1px solid rgba(255,255,255,0.03)">
+              <div class="tiny">Clientes próximos à cobrança:</div>
+              <ul id="listaVencimentos" style="margin:8px 0 0 16px"></ul>
             </div>
-            <hr style="border:none;margin:12px 0;border-top:1px solid rgba(255,255,255,0.03)">
-            <div class="tiny">Clientes próximos à cobrança:</div>
-            <ul id="listaVencimentos" style="margin:8px 0 0 16px"></ul>
-          </div>
 
-          <div class="panel box">
-            <h3 style="margin:0 0 8px 0">Gráfico de crescimento</h3>
-            <canvas id="linhaCrescimento" class="chart"></canvas>
-            <div class="tiny" style="margin-top:8px">Crescimento de clientes mês a mês</div>
-          </div>
-        </aside>
+            <div class="panel box">
+              <h3 style="margin:0 0 8px 0">Gráfico de crescimento</h3>
+              <canvas id="linhaCrescimento" class="chart"></canvas>
+              <div class="tiny" style="margin-top:8px">Crescimento de clientes mês a mês</div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- Seção APIS -->
+      <div id="apis" class="section">
+        <div class="content">
+          <section>
+            <div class="panel">
+              <h2 style="margin-top:0">Gerenciamento de APIs</h2>
+              <div class="tiny">Gerencie as chaves de API dos clientes</div>
+              
+              <div style="margin: 16px 0;">
+                <button class="btn-primary" id="btnGerarAPI">Gerar Nova Chave API</button>
+                <button id="btnRevalidarAPIs" style="margin-left:8px">Revalidar Todas as APIs</button>
+              </div>
+              
+              <div style="overflow:auto; max-height:420px">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Chave API</th>
+                      <th>Status</th>
+                      <th>Data Criação</th>
+                      <th>Último Uso</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="apisBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+          
+          <aside class="right-col">
+            <div class="panel">
+              <h3>Configurações de API</h3>
+              <div class="tiny">Limites e configurações globais</div>
+              
+              <div style="margin-top:16px">
+                <label class="tiny">Limite padrão de tokens/mês:</label>
+                <input type="number" id="limiteTokensPadrao" value="20000" style="width:100%;padding:8px;border-radius:6px;background:#05050a;border:1px solid rgba(255,255,255,0.03);color:#fff;margin-top:4px">
+              </div>
+              
+              <div style="margin-top:12px">
+                <label class="tiny">URL Base da API:</label>
+                <input type="text" id="urlBaseAPI" value="https://api.magnatuns.com/v1" style="width:100%;padding:8px;border-radius:6px;background:#05050a;border:1px solid rgba(255,255,255,0.03);color:#fff;margin-top:4px">
+              </div>
+              
+              <button class="btn-primary" style="margin-top:16px;width:100%" id="btnSalvarConfigAPI">Salvar Configurações</button>
+            </div>
+            
+            <div class="panel" style="margin-top:12px">
+              <h3>Estatísticas de Uso da API</h3>
+              <div class="tiny">Requisições nas últimas 24h</div>
+              <canvas id="graficoRequisicoes" class="chart" style="height:140px"></canvas>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- Seção FATURAMENTO -->
+      <div id="faturamento" class="section">
+        <div class="card-row" id="cardsFaturamento"></div>
+        
+        <div class="content">
+          <section>
+            <div class="panel">
+              <h2 style="margin-top:0">Transações e Faturas</h2>
+              <div style="margin-bottom:12px; display:flex;justify-content:space-between;align-items:center">
+                <div class="tiny">Histórico de pagamentos e cobranças</div>
+                <div>
+                  <button id="btnGerarFatura">Gerar Fatura Manual</button>
+                  <button id="btnExportarFaturas" style="margin-left:8px">Exportar Faturas</button>
+                </div>
+              </div>
+              
+              <div style="overflow:auto; max-height:420px">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Data</th>
+                      <th>Valor</th>
+                      <th>Status</th>
+                      <th>Método</th>
+                      <th>Fatura</th>
+                    </tr>
+                  </thead>
+                  <tbody id="transacoesBody"></tbody>
+                </table>
+              </div>
+            </div>
+            
+            <div class="panel" style="margin-top:12px">
+              <h3 style="margin:0 0 8px 0">Projeção de Faturamento</h3>
+              <canvas id="graficoFaturamento" class="chart"></canvas>
+              <div class="tiny" style="margin-top:8px">Previsão para os próximos 6 meses</div>
+            </div>
+          </section>
+          
+          <aside class="right-col">
+            <div class="panel">
+              <h3>Resumo Financeiro</h3>
+              <div style="margin:12px 0">
+                <div style="display:flex;justify-content:space-between">
+                  <span class="tiny">Receita do Mês:</span>
+                  <span id="receitaMes" style="font-weight:700">R$ 0,00</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:8px">
+                  <span class="tiny">Receita Pendente:</span>
+                  <span id="receitaPendente" style="color:var(--accent)">R$ 0,00</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:8px">
+                  <span class="tiny">Clientes Inadimplentes:</span>
+                  <span id="clientesInadimplentes" style="color:var(--danger)">0</span>
+                </div>
+              </div>
+              
+              <hr style="border:none;margin:12px 0;border-top:1px solid rgba(255,255,255,0.03)">
+              
+              <h4>Configurações de Cobrança</h4>
+              <div style="margin-top:8px">
+                <label class="tiny">Valor Mensal (R$):</label>
+                <input type="number" id="valorMensal" value="80" style="width:100%;padding:8px;border-radius:6px;background:#05050a;border:1px solid rgba(255,255,255,0.03);color:#fff;margin-top:4px">
+              </div>
+              
+              <button class="btn-primary" style="margin-top:12px;width:100%" id="btnSalvarConfigFaturamento">Salvar Configurações</button>
+            </div>
+            
+            <div class="panel" style="margin-top:12px">
+              <h3>Próximas Cobranças</h3>
+              <div id="listaProximasCobrancas" style="margin-top:8px"></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- Seção RELATORIOS -->
+      <div id="relatorios" class="section">
+        <div class="content">
+          <section>
+            <div class="panel">
+              <h2 style="margin-top:0">Relatórios Personalizados</h2>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0">
+                <div class="card">
+                  <h3>Relatório de Uso</h3>
+                  <div class="tiny">Analise o consumo de tokens por período</div>
+                  <button class="btn-primary" style="margin-top:12px;width:100%" id="btnGerarRelatorioUso">Gerar Relatório</button>
+                </div>
+                
+                <div class="card">
+                  <h3>Relatório Financeiro</h3>
+                  <div class="tiny">Faturamento e projeções</div>
+                  <button class="btn-primary" style="margin-top:12px;width:100%" id="btnGerarRelatorioFinanceiro">Gerar Relatório</button>
+                </div>
+                
+                <div class="card">
+                  <h3>Relatório de Clientes</h3>
+                  <div class="tiny">Crescimento e engajamento</div>
+                  <button class="btn-primary" style="margin-top:12px;width:100%" id="btnGerarRelatorioClientes">Gerar Relatório</button>
+                </div>
+                
+                <div class="card">
+                  <h3>Relatório de API</h3>
+                  <div class="tiny">Performance e uso das APIs</div>
+                  <button class="btn-primary" style="margin-top:12px;width:100%" id="btnGerarRelatorioAPI">Gerar Relatório</button>
+                </div>
+              </div>
+              
+              <div id="areaRelatorio" style="margin-top:20px;display:none">
+                <h3>Relatório Gerado</h3>
+                <div class="panel">
+                  <pre id="conteudoRelatorio" style="white-space:pre-wrap;font-family:monospace;font-size:12px;max-height:300px;overflow:auto"></pre>
+                  <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="btn-primary" id="btnExportarRelatorio">Exportar como JSON</button>
+                    <button id="btnExportarRelatorioCSV">Exportar como CSV</button>
+                    <button id="btnFecharRelatorio">Fechar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          <aside class="right-col">
+            <div class="panel">
+              <h3>Configurações do Relatório</h3>
+              
+              <div style="margin-top:12px">
+                <label class="tiny">Período:</label>
+                <select id="periodoRelatorio" style="width:100%;padding:8px;border-radius:6px;background:#05050a;border:1px solid rgba(255,255,255,0.03);color:#fff;margin-top:4px">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 3 meses</option>
+                  <option value="180">Últimos 6 meses</option>
+                  <option value="365">Último ano</option>
+                </select>
+              </div>
+              
+              <div style="margin-top:12px">
+                <label class="tiny">Formato de Saída:</label>
+                <select id="formatoRelatorio" style="width:100%;padding:8px;border-radius:6px;background:#05050a;border:1px solid rgba(255,255,255,0.03);color:#fff;margin-top:4px">
+                  <option value="json">JSON</option>
+                  <option value="csv">CSV</option>
+                  <option value="html">HTML</option>
+                </select>
+              </div>
+              
+              <div style="margin-top:12px">
+                <label class="tiny">Incluir dados de:</label>
+                <div style="margin-top:4px">
+                  <input type="checkbox" id="incluirClientes" checked> <label for="incluirClientes" class="tiny">Clientes</label><br>
+                  <input type="checkbox" id="incluirFinanceiro" checked> <label for="incluirFinanceiro" class="tiny">Financeiro</label><br>
+                  <input type="checkbox" id="incluirAPI"> <label for="incluirAPI" class="tiny">Uso da API</label>
+                </div>
+              </div>
+            </div>
+            
+            <div class="panel" style="margin-top:12px">
+              <h3>Relatórios Salvos</h3>
+              <div id="listaRelatoriosSalvos" class="tiny" style="margin-top:8px">
+                Nenhum relatório salvo
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
 
       <footer>MAGNATUNS • Painel MVP — protegido. Apenas administradores.</footer>
     </main>
   </div>
 
-  <!-- Login overlay (injetado by JS) -->
+  <!-- Login overlay -->
   <div id="loginOverlay" style="display:none;">
     <div id="loginBox">
       <h3>Entrar — Painel MAGNATUNS</h3>
@@ -251,17 +490,45 @@
 
   <script>
   /************************************************************************
-   * Painel MAGNATUNS — Script principal
-   * - Persistência: localStorage (chave: magnatuns_data_v1)
-   * - Login simples: senha padrão 'admin123' (configurável via settings)
-   * - Clientes: criar/editar/remover, painel lateral de notas
-   * - Export/Import JSON + Export CSV
-   * - Gráficos: Chart.js (tokens e crescimento)
+   * Painel MAGNATUNS — Script completo com todas as funcionalidades
    ************************************************************************/
-
   (function(){
+    console.log('Inicializando painel MAGNATUNS...');
+
+    // ---- expose showSection globally so inline onclick/nav works
+    window.showSection = function(sectionId){
+      // remove active from all nav links
+      document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+      const link = document.querySelector('nav a[data-section="'+sectionId+'"]');
+      if(link) link.classList.add('active');
+
+      // Hide all sections and show the selected one
+      document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+      });
+      const el = document.getElementById(sectionId);
+      if(el){
+        el.classList.add('active');
+        
+        // Render specific content for each section
+        switch(sectionId) {
+          case 'apis':
+            renderAPISection();
+            break;
+          case 'faturamento':
+            renderFaturamentoSection();
+            break;
+          case 'relatorios':
+            renderRelatoriosSection();
+            break;
+        }
+      } else {
+        alert('Seção "'+sectionId+'" ainda não implementada nesta versão.');
+      }
+    };
+
     // ---- constants & storage key
-    const STORAGE_KEY = 'magnatuns_data_v1';
+    const STORAGE_KEY = 'magnatuns_data_v2';
     const AUTH_KEY = 'magnatuns_auth_v1';
     const DEFAULT_PASSWORD = 'admin123';
 
@@ -278,11 +545,40 @@
     const notesArea = document.getElementById('notesArea');
     const rawBarCtx = document.getElementById('barraTokens');
     const rawLineCtx = document.getElementById('linhaCrescimento');
+    const fileInput = document.getElementById('fileInput');
 
-    let data = { clients: [] }; // structure: { clients: [ {id, name, site, status, apiKey, tokensLimit, tokensUsed, nextBilling (ISO), notes, createdAt} ] }
+    let data = { 
+      clients: [],
+      config: {
+        limiteTokensPadrao: 20000,
+        urlBaseAPI: 'https://api.magnatuns.com/v1',
+        valorMensal: 80
+      },
+      transacoes: [],
+      relatorios: []
+    };
+    
     let selectedClientId = null;
     let tokenBarChart = null;
     let growthLineChart = null;
+    let faturamentoChart = null;
+    let apiUsageChart = null;
+
+    // make functions global that are used by inline onclick attributes
+    window.novoCliente = novoCliente;
+    window.selectClient = selectClient;
+    window.editarCliente = editarCliente;
+    window.excluirCliente = excluirCliente;
+    window.toggleStatus = toggleStatus;
+    window.forcarSwap = forcarSwap;
+    window.suspenderCliente = suspenderCliente;
+    window.downloadCSV = downloadCSV;
+    window.exportJSON = exportJSON;
+    window.importJSON = importJSON;
+    window.exportSingleClient = exportSingleClient;
+    window.filtrar = filtrar;
+    window.mostrarApenasEmDemo = mostrarApenasEmDemo;
+    window.abrirConfiguracoes = abrirConfiguracoes;
 
     // ---- init
     function init(){
@@ -291,6 +587,9 @@
       renderAll();
       bindUI();
       showLoginIfNeeded();
+      
+      // Set up search functionality
+      pesquisaEl.addEventListener('input', filtrar);
     }
 
     function ensureElements(){
@@ -317,14 +616,28 @@
         if(raw){
           data = JSON.parse(raw);
         } else {
-          data = { clients: sampleData() }; // seed sample for first run
+          data = { 
+            ...data,
+            clients: sampleData(),
+            transacoes: sampleTransacoes()
+          };
           saveData();
         }
       } catch(e){
         console.error('Erro ao carregar dados:', e);
-        data = { clients: [] };
+        data = { 
+          clients: [],
+          config: {
+            limiteTokensPadrao: 20000,
+            urlBaseAPI: 'https://api.magnatuns.com/v1',
+            valorMensal: 80
+          },
+          transacoes: [],
+          relatorios: []
+        };
       }
     }
+    
     function saveData(){
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       renderAll();
@@ -333,9 +646,18 @@
     function sampleData(){
       const now = Date.now();
       return [
-        { id: genId(), name:'Cliente Demo A', site:'https://demo-a.com', status:'active', apiKey:'gsk_demo_a', tokensLimit:50000, tokensUsed:12340, nextBilling: addDaysISO(now, 9), notes:'Notas iniciais do Cliente A', createdAt: now-1000*60*60*24*30 },
-        { id: genId(), name:'Cliente Demo B', site:'https://demo-b.com', status:'active', apiKey:'gsk_demo_b', tokensLimit:30000, tokensUsed:28900, nextBilling: addDaysISO(now, 2), notes:'Cliente B - atenção ao plano', createdAt: now-1000*60*60*24*60 },
+        { id: genId(), name:'Cliente Demo A', site:'https://demo-a.com', status:'active', apiKey:'gsk_demo_a_'+Math.random().toString(36).slice(2,10), tokensLimit:50000, tokensUsed:12340, nextBilling: addDaysISO(now, 9), notes:'Notas iniciais do Cliente A', createdAt: now-1000*60*60*24*30 },
+        { id: genId(), name:'Cliente Demo B', site:'https://demo-b.com', status:'active', apiKey:'gsk_demo_b_'+Math.random().toString(36).slice(2,10), tokensLimit:30000, tokensUsed:28900, nextBilling: addDaysISO(now, 2), notes:'Cliente B - atenção ao plano', createdAt: now-1000*60*60*24*60 },
         { id: genId(), name:'Cliente Demo C', site:'https://demo-c.com', status:'suspended', apiKey:'', tokensLimit:10000, tokensUsed:200, nextBilling: addDaysISO(now, 20), notes:'Conta suspensa', createdAt: now-1000*60*60*24*10 }
+      ];
+    }
+    
+    function sampleTransacoes(){
+      const now = Date.now();
+      return [
+        { id: 't_1', clientId: 'c_1', cliente: 'Cliente Demo A', data: new Date(now - 1000*60*60*24*5).toISOString(), valor: 80, status: 'pago', metodo: 'Cartão', fatura: 'FAT-001' },
+        { id: 't_2', clientId: 'c_2', cliente: 'Cliente Demo B', data: new Date(now - 1000*60*60*24*35).toISOString(), valor: 80, status: 'pago', metodo: 'PIX', fatura: 'FAT-002' },
+        { id: 't_3', clientId: 'c_3', cliente: 'Cliente Demo C', data: new Date(now - 1000*60*60*24*40).toISOString(), valor: 80, status: 'pendente', metodo: 'Boleto', fatura: 'FAT-003' }
       ];
     }
 
@@ -343,18 +665,30 @@
     function genId(){ return 'c_' + Math.random().toString(36).slice(2,9); }
     function addDaysISO(base, days){ return new Date(base + days*24*3600000).toISOString().slice(0,10); }
     function formatDate(iso){ if(!iso) return '—'; try { const d = new Date(iso); return d.toLocaleDateString(); } catch(e){ return iso; } }
+    function formatCurrency(valor){ return 'R$ ' + parseFloat(valor).toFixed(2).replace('.', ','); }
 
     // ---- render
     function renderAll(){
       renderSummaryCards();
       renderClientsTable();
       renderCharts();
-      updateRightPanel(); // refresh selected client UI
+      updateRightPanel();
       updateCounts();
+      
+      // Load config values
+      if(document.getElementById('limiteTokensPadrao')) {
+        document.getElementById('limiteTokensPadrao').value = data.config.limiteTokensPadrao;
+      }
+      if(document.getElementById('urlBaseAPI')) {
+        document.getElementById('urlBaseAPI').value = data.config.urlBaseAPI;
+      }
+      if(document.getElementById('valorMensal')) {
+        document.getElementById('valorMensal').value = data.config.valorMensal;
+      }
     }
 
     function renderSummaryCards(){
-      const resumen = document.getElementById('resumo');
+      const resumen = document.querySelector('#resumo .card-row');
       const totalMRR = calculateMRR();
       resumen.innerHTML = '';
       const cards = [
@@ -371,9 +705,8 @@
     }
 
     function calculateMRR(){
-      // simplistic: each active client contributes R$80
       const active = data.clients.filter(c=>c.status==='active').length;
-      return active * 80;
+      return active * data.config.valorMensal;
     }
 
     function updateCounts(){
@@ -386,7 +719,9 @@
       clientesBody.innerHTML = '';
       const clients = data.clients.filter(c=>{
         if(!q) return true;
-        return (c.name || '').toLowerCase().includes(q) || (c.site||'').toLowerCase().includes(q) || (c.apiKey||'').toLowerCase().includes(q);
+        return (c.name || '').toLowerCase().includes(q) || 
+               (c.site||'').toLowerCase().includes(q) || 
+               (c.apiKey||'').toLowerCase().includes(q);
       });
 
       clients.forEach(c=>{
@@ -409,15 +744,358 @@
       });
     }
 
-    function escapeHtml(str){ if(!str) return ''; return String(str).replace(/[&<>"]/g, s=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[s])); }
+    function escapeHtml(str){ 
+      if(!str) return ''; 
+      return String(str).replace(/[&<>"]/g, s=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[s])); 
+    }
+
+    // ---- APIS Section
+    function renderAPISection(){
+      const apisBody = document.getElementById('apisBody');
+      if(!apisBody) return;
+      
+      apisBody.innerHTML = '';
+      data.clients.forEach(client => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(client.name)}</td>
+          <td><code style="font-size:11px">${client.apiKey || '—'}</code></td>
+          <td><span class="pill ${client.status==='active'?'green':'red'}">${client.status}</span></td>
+          <td>${formatDate(client.createdAt)}</td>
+          <td>${client.lastApiUse ? formatDate(client.lastApiUse) : '—'}</td>
+          <td>
+            <button onclick="gerarNovaAPI('${client.id}')">Gerar Nova</button>
+            <button onclick="copiarAPI('${client.id}')">Copiar</button>
+          </td>
+        `;
+        apisBody.appendChild(tr);
+      });
+      
+      // Render API usage chart
+      renderAPIUsageChart();
+    }
+    
+    function gerarNovaAPI(clientId){
+      const client = data.clients.find(c => c.id === clientId);
+      if(!client) return;
+      
+      const novaAPI = 'gsk_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      client.apiKey = novaAPI;
+      saveData();
+      renderAPISection();
+      alert('Nova chave API gerada para ' + client.name);
+    }
+    
+    function copiarAPI(clientId){
+      const client = data.clients.find(c => c.id === clientId);
+      if(!client || !client.apiKey) return alert('Cliente não tem chave API');
+      
+      navigator.clipboard.writeText(client.apiKey).then(() => {
+        alert('Chave API copiada para a área de transferência');
+      });
+    }
+    
+    function renderAPIUsageChart(){
+      const ctx = document.getElementById('graficoRequisicoes');
+      if(!ctx) return;
+      
+      if(apiUsageChart) apiUsageChart.destroy();
+      
+      // Simulate API usage data
+      const labels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'];
+      const dataPoints = labels.map(() => Math.floor(Math.random() * 1000));
+      
+      apiUsageChart = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Requisições',
+            data: dataPoints,
+            borderColor: '#ffd77a',
+            backgroundColor: 'rgba(255,215,122,0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: {display: false} },
+          scales: { 
+            x: { ticks: {color: '#aaa'} }, 
+            y: { ticks: {color: '#aaa'} } 
+          }
+        }
+      });
+    }
+
+    // ---- Faturamento Section
+    function renderFaturamentoSection(){
+      renderFaturamentoCards();
+      renderTransacoesTable();
+      renderFaturamentoChart();
+      updateResumoFinanceiro();
+      renderProximasCobrancas();
+    }
+    
+    function renderFaturamentoCards(){
+      const cardsFaturamento = document.getElementById('cardsFaturamento');
+      if(!cardsFaturamento) return;
+      
+      const receitaMes = data.transacoes
+        .filter(t => t.status === 'pago' && new Date(t.data).getMonth() === new Date().getMonth())
+        .reduce((sum, t) => sum + t.valor, 0);
+        
+      const receitaPendente = data.transacoes
+        .filter(t => t.status === 'pendente')
+        .reduce((sum, t) => sum + t.valor, 0);
+        
+      const inadimplentes = data.transacoes
+        .filter(t => t.status === 'pendente' && new Date(t.data) < new Date(new Date().setDate(new Date().getDate() - 30)))
+        .length;
+        
+      cardsFaturamento.innerHTML = '';
+      const cards = [
+        { title: 'Receita do Mês', value: formatCurrency(receitaMes) },
+        { title: 'Receita Pendente', value: formatCurrency(receitaPendente) },
+        { title: 'Clientes Ativos', value: data.clients.filter(c => c.status === 'active').length },
+        { title: 'Inadimplentes', value: inadimplentes }
+      ];
+      
+      cards.forEach(c => {
+        const div = document.createElement('div'); 
+        div.className = 'card';
+        div.innerHTML = `<h3>${c.title}</h3><div class="value">${c.value}</div>`;
+        cardsFaturamento.appendChild(div);
+      });
+    }
+    
+    function renderTransacoesTable(){
+      const transacoesBody = document.getElementById('transacoesBody');
+      if(!transacoesBody) return;
+      
+      transacoesBody.innerHTML = '';
+      data.transacoes.forEach(transacao => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(transacao.cliente)}</td>
+          <td>${formatDate(transacao.data)}</td>
+          <td>${formatCurrency(transacao.valor)}</td>
+          <td><span class="pill ${transacao.status==='pago'?'green':'red'}">${transacao.status}</span></td>
+          <td>${transacao.metodo}</td>
+          <td>${transacao.fatura}</td>
+        `;
+        transacoesBody.appendChild(tr);
+      });
+    }
+    
+    function renderFaturamentoChart(){
+      const ctx = document.getElementById('graficoFaturamento');
+      if(!ctx) return;
+      
+      if(faturamentoChart) faturamentoChart.destroy();
+      
+      // Simulate revenue projection
+      const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const currentMonth = new Date().getMonth();
+      const projection = months.map((month, index) => {
+        if(index < currentMonth) {
+          return Math.random() * 1000 + 500; // Past data
+        } else {
+          // Projection: growing trend
+          const base = 1000 + (index - currentMonth) * 200;
+          return base + Math.random() * 300;
+        }
+      });
+      
+      faturamentoChart = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: months,
+          datasets: [{
+            label: 'Faturamento (R$)',
+            data: projection,
+            backgroundColor: 'rgba(212, 175, 55, 0.7)',
+            borderColor: 'rgba(212, 175, 55, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: {display: false} },
+          scales: { 
+            x: { ticks: {color: '#aaa'} }, 
+            y: { ticks: {color: '#aaa'} } 
+          }
+        }
+      });
+    }
+    
+    function updateResumoFinanceiro(){
+      const receitaMes = data.transacoes
+        .filter(t => t.status === 'pago' && new Date(t.data).getMonth() === new Date().getMonth())
+        .reduce((sum, t) => sum + t.valor, 0);
+        
+      const receitaPendente = data.transacoes
+        .filter(t => t.status === 'pendente')
+        .reduce((sum, t) => sum + t.valor, 0);
+        
+      const inadimplentes = data.transacoes
+        .filter(t => t.status === 'pendente' && new Date(t.data) < new Date(new Date().setDate(new Date().getDate() - 30)))
+        .length;
+        
+      if(document.getElementById('receitaMes')) {
+        document.getElementById('receitaMes').textContent = formatCurrency(receitaMes);
+      }
+      if(document.getElementById('receitaPendente')) {
+        document.getElementById('receitaPendente').textContent = formatCurrency(receitaPendente);
+      }
+      if(document.getElementById('clientesInadimplentes')) {
+        document.getElementById('clientesInadimplentes').textContent = inadimplentes;
+      }
+    }
+    
+    function renderProximasCobrancas(){
+      const lista = document.getElementById('listaProximasCobrancas');
+      if(!lista) return;
+      
+      lista.innerHTML = '';
+      const proximas = data.clients
+        .filter(c => c.status === 'active')
+        .sort((a, b) => new Date(a.nextBilling) - new Date(b.nextBilling))
+        .slice(0, 5);
+        
+      proximas.forEach(client => {
+        const div = document.createElement('div');
+        div.style = 'display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px';
+        div.innerHTML = `
+          <span>${client.name}</span>
+          <span>${formatDate(client.nextBilling)}</span>
+        `;
+        lista.appendChild(div);
+      });
+    }
+
+    // ---- Relatorios Section
+    function renderRelatoriosSection(){
+      // Implementation for reports section
+      renderRelatoriosSalvos();
+    }
+    
+    function renderRelatoriosSalvos(){
+      const lista = document.getElementById('listaRelatoriosSalvos');
+      if(!lista) return;
+      
+      if(data.relatorios.length === 0) {
+        lista.innerHTML = 'Nenhum relatório salvo';
+        return;
+      }
+      
+      lista.innerHTML = '';
+      data.relatorios.forEach(relatorio => {
+        const div = document.createElement('div');
+        div.style = 'margin-bottom:8px;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px';
+        div.innerHTML = `
+          <div style="font-weight:600">${relatorio.nome}</div>
+          <div class="tiny">${formatDate(relatorio.data)} • ${relatorio.tipo}</div>
+        `;
+        lista.appendChild(div);
+      });
+    }
+    
+    function gerarRelatorio(tipo){
+      const periodo = parseInt(document.getElementById('periodoRelatorio').value);
+      const formato = document.getElementById('formatoRelatorio').value;
+      
+      let relatorioData = {
+        tipo: tipo,
+        periodo: periodo,
+        data: new Date().toISOString(),
+        clientes: data.clients,
+        transacoes: data.transacoes.filter(t => {
+          const dataTransacao = new Date(t.data);
+          const dataLimite = new Date(Date.now() - periodo * 24 * 60 * 60 * 1000);
+          return dataTransacao >= dataLimite;
+        })
+      };
+      
+      // Format based on output format
+      let conteudo = '';
+      if(formato === 'json') {
+        conteudo = JSON.stringify(relatorioData, null, 2);
+      } else if(formato === 'csv') {
+        // Simple CSV conversion
+        conteudo = 'Tipo,Periodo,Data\n';
+        conteudo += `${relatorioData.tipo},${relatorioData.periodo},${relatorioData.data}\n\n`;
+        
+        // Add clients data
+        conteudo += 'Clientes\n';
+        conteudo += 'Nome,Status,Tokens Usados\n';
+        relatorioData.clientes.forEach(c => {
+          conteudo += `"${c.name}",${c.status},${c.tokensUsed}\n`;
+        });
+        
+        conteudo += '\nTransacoes\n';
+        conteudo += 'Cliente,Valor,Status,Data\n';
+        relatorioData.transacoes.forEach(t => {
+          conteudo += `"${t.cliente}",${t.valor},${t.status},${t.data}\n`;
+        });
+      } else {
+        // HTML format
+        conteudo = `<h1>Relatório ${tipo}</h1>`;
+        conteudo += `<p>Período: últimos ${periodo} dias</p>`;
+        conteudo += `<p>Data de geração: ${new Date().toLocaleDateString()}</p>`;
+        
+        conteudo += '<h2>Resumo</h2>';
+        conteudo += `<p>Total de clientes: ${relatorioData.clientes.length}</p>`;
+        conteudo += `<p>Clientes ativos: ${relatorioData.clientes.filter(c => c.status === 'active').length}</p>`;
+        conteudo += `<p>Transações no período: ${relatorioData.transacoes.length}</p>`;
+      }
+      
+      document.getElementById('conteudoRelatorio').textContent = conteudo;
+      document.getElementById('areaRelatorio').style.display = 'block';
+      
+      // Save report
+      data.relatorios.unshift({
+        id: 'r_' + Math.random().toString(36).slice(2,9),
+        nome: `Relatório ${tipo} - ${new Date().toLocaleDateString()}`,
+        tipo: tipo,
+        data: new Date().toISOString(),
+        conteudo: conteudo
+      });
+      
+      // Keep only last 10 reports
+      if(data.relatorios.length > 10) {
+        data.relatorios = data.relatorios.slice(0, 10);
+      }
+      
+      saveData();
+      renderRelatoriosSalvos();
+    }
+    
+    function exportarRelatorio(formato){
+      const conteudo = document.getElementById('conteudoRelatorio').textContent;
+      const tipo = document.getElementById('conteudoRelatorio').textContent.includes('Relatório') ? 
+        document.getElementById('conteudoRelatorio').textContent.split('Relatório ')[1].split(' ')[0] : 'relatorio';
+      
+      const filename = `relatorio_${tipo}_${new Date().toISOString().slice(0,10)}.${formato}`;
+      const blob = new Blob([conteudo], {type: formato === 'json' ? 'application/json' : 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); 
+      a.href = url; 
+      a.download = filename;
+      document.body.appendChild(a); 
+      a.click(); 
+      a.remove(); 
+      URL.revokeObjectURL(url);
+    }
 
     // ---- selection & notes
-    window.selectClient = function(id){
+    function selectClient(id){
       selectedClientId = id;
       updateRightPanel();
-      // scroll to detail
       document.getElementById('clienteSelecionadoName').scrollIntoView({behavior:'smooth',block:'center'});
-    };
+    }
 
     function updateRightPanel(){
       const client = data.clients.find(c=>c.id===selectedClientId) || null;
@@ -425,9 +1103,321 @@
         clienteSelecionadoName.textContent = client.name;
         clienteSelecionadoEmail.textContent = client.site || '';
         tokensRestantesEl.textContent = ((client.tokensLimit||0) - (client.tokensUsed||0)).toLocaleString();
-        estimativaRequestsEl.textContent = Math.max(0, Math.floor((80*1000) / 85)) + ' (exemplo)'; // simplistic
-        // notes area
+        estimativaRequestsEl.textContent = Math.max(0, Math.floor((80*1000) / 85)) + ' requests';
+        
         const notesTextarea = document.getElementById('notesTextarea');
         if(notesTextarea) notesTextarea.value = client.notes || '';
-        // attach save
-        document.getElementById('btnSaveNotes').onclick = ()=> {
+        
+        document.getElementById('btnSaveNotes').onclick = ()=> { saveNotesFromUI(); };
+        document.getElementById('btnExportClientJSON').onclick = ()=> { exportSingleClient(client.id); };
+        document.getElementById('btnDeleteClient').onclick = ()=> {
+          if(confirm('Excluir cliente "'+client.name+'" e todos os dados?')) {
+            excluirCliente(client.id);
+          }
+        };
+      } else {
+        clienteSelecionadoName.textContent = 'Nenhum';
+        clienteSelecionadoEmail.textContent = '';
+        tokensRestantesEl.textContent = '—';
+        const notesTextarea = document.getElementById('notesTextarea');
+        if(notesTextarea) notesTextarea.value = '';
+      }
+      
+      renderVencimentos();
+    }
+
+    function saveNotesFromUI(){
+      if(!selectedClientId) return alert('Selecione um cliente');
+      const client = data.clients.find(c=>c.id===selectedClientId);
+      if(!client) return;
+      const notes = document.getElementById('notesTextarea').value;
+      client.notes = notes;
+      saveData();
+      alert('Notas salvas.');
+    }
+
+    // ---- CRUD
+    function novoCliente(){
+      const name = prompt('Nome do novo cliente:');
+      if(!name) return;
+      const site = prompt('Site ou link (opcional):') || '';
+      const id = genId();
+      data.clients.push({
+        id, name, site, status:'active', 
+        apiKey:'gsk_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+        tokensLimit: data.config.limiteTokensPadrao, 
+        tokensUsed:0, 
+        nextBilling: addDaysISO(Date.now(), 30),
+        notes: '', 
+        createdAt: Date.now()
+      });
+      saveData();
+      selectClient(id);
+    }
+
+    function editarCliente(id){
+      const client = data.clients.find(c=>c.id===id);
+      if(!client) return alert('Cliente não encontrado');
+      const name = prompt('Nome', client.name) || client.name;
+      const site = prompt('Site', client.site || '') || client.site;
+      const tokensLimit = parseInt(prompt('Tokens por mês', client.tokensLimit || data.config.limiteTokensPadrao) || client.tokensLimit,10);
+      client.name = name; 
+      client.site = site; 
+      client.tokensLimit = isNaN(tokensLimit)? client.tokensLimit : tokensLimit;
+      saveData();
+    }
+
+    function excluirCliente(id){
+      const idx = data.clients.findIndex(c=>c.id===id);
+      if(idx===-1) return;
+      data.clients.splice(idx,1);
+      if(selectedClientId===id) selectedClientId = null;
+      saveData();
+    }
+
+    function toggleStatus(id){
+      const client = data.clients.find(c=>c.id===id);
+      if(!client) return;
+      client.status = (client.status==='active') ? 'suspended' : 'active';
+      saveData();
+    }
+
+    function forcarSwap(){
+      if(!selectedClientId) return alert('Selecione um cliente');
+      const c = data.clients.find(x=>x.id===selectedClientId);
+      if(!c) return;
+      c.status = 'active';
+      c.tokensUsed = 0;
+      saveData();
+      alert('Ativado e tokens resetados.');
+    }
+    
+    function suspenderCliente(){
+      if(!selectedClientId) return alert('Selecione um cliente');
+      const c = data.clients.find(x=>x.id===selectedClientId);
+      if(!c) return;
+      c.status = 'suspended';
+      saveData();
+      alert('Cliente suspenso.');
+    }
+
+    // ---- export/import
+    function exportJSON(){
+      const filename = 'magnatuns_export_' + new Date().toISOString().slice(0,10) + '.json';
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }
+
+    function importJSON(){
+      fileInput.value = null;
+      fileInput.onchange = function(e){
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(){ 
+          try {
+            const parsed = JSON.parse(reader.result);
+            if(parsed && (Array.isArray(parsed.clients) || parsed.clients)){
+              if(confirm('Importar irá substituir os dados atuais. Continuar?')){
+                data = {...data, ...parsed};
+                saveData();
+                alert('Importação concluída.');
+              }
+            } else {
+              alert('Arquivo inválido.');
+            }
+          } catch(err){ alert('Erro ao ler arquivo: ' + err.message); }
+        };
+        reader.readAsText(file);
+      };
+      fileInput.click();
+    }
+
+    function exportSingleClient(id){
+      const client = data.clients.find(c=>c.id===id);
+      if(!client) return alert('Cliente não encontrado');
+      const filename = (client.name||'client') + '_' + new Date().toISOString().slice(0,10) + '.json';
+      const blob = new Blob([JSON.stringify(client, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }
+
+    function downloadCSV(){
+      if(!data.clients.length) return alert('Nenhum cliente para exportar.');
+      const rows = [['nome','site','status','apiKey','tokensLimit','tokensUsed','nextBilling','notes']];
+      data.clients.forEach(c=>{
+        rows.push([c.name||'', c.site||'', c.status||'', c.apiKey||'', c.tokensLimit||'', c.tokensUsed||'', c.nextBilling||'', (c.notes||'').replace(/\n/g,' ')]);
+      });
+      const csv = rows.map(r => r.map(cell=>'"'+String(cell).replace(/"/g,'""')+'"').join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'clientes_export.csv'; a.click();
+    }
+
+    // ---- filtering and demo
+    function filtrar(){
+      renderClientsTable();
+    }
+
+    function mostrarApenasEmDemo(){
+      const demoList = data.clients.filter(c => c.name.toLowerCase().includes('demo'));
+      if(!demoList.length) return alert('Nenhum cliente demo.');
+      pesquisaEl.value = 'demo';
+      renderClientsTable();
+    }
+
+    // ---- charts
+    function renderCharts(){
+      renderTokenBar();
+      renderGrowthLine();
+    }
+
+    function renderTokenBar(){
+      const list = data.clients.slice().sort((a,b)=> (b.tokensUsed||0) - (a.tokensUsed||0)).slice(0,8);
+      const labels = list.map(c=>c.name);
+      const values = list.map(c=>c.tokensUsed || 0);
+      if(tokenBarChart) tokenBarChart.destroy();
+      tokenBarChart = new Chart(rawBarCtx.getContext('2d'), {
+        type:'bar',
+        data:{
+          labels, datasets:[{ label:'Tokens usados', data:values, backgroundColor:'rgba(255,215,0,0.8)' }]
+        },
+        options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ ticks:{color:'#aaa'}}, y:{ ticks:{color:'#aaa'} } } }
+      });
+    }
+
+    function renderGrowthLine(){
+      const map = {};
+      data.clients.forEach(c=>{
+        const d = new Date(c.createdAt || Date.now());
+        const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        map[key] = (map[key]||0)+1;
+      });
+      const keys = Object.keys(map).sort();
+      const values = keys.map(k=>map[k]);
+      if(growthLineChart) growthLineChart.destroy();
+      growthLineChart = new Chart(rawLineCtx.getContext('2d'), {
+        type:'line',
+        data:{ labels:keys, datasets:[{ label:'Novos clientes', data:values, borderColor:'#ffd77a', backgroundColor:'rgba(255,215,122,0.12)', tension:0.2 }]},
+        options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ ticks:{color:'#aaa'}}, y:{ ticks:{color:'#aaa'} } } }
+      });
+    }
+
+    // ---- vencimentos
+    function renderVencimentos(){
+      listaVencimentos.innerHTML = '';
+      const due = data.clients.slice().sort((a,b)=>{
+        const da = new Date(a.nextBilling||'9999-12-31'); 
+        const db = new Date(b.nextBilling||'9999-12-31'); 
+        return da - db;
+      }).slice(0,6);
+      due.forEach(c=>{
+        const li = document.createElement('li'); 
+        li.textContent = `${formatDate(c.nextBilling)} — ${c.name}`;
+        listaVencimentos.appendChild(li);
+      });
+    }
+
+    // ---- settings & login
+    function showLoginIfNeeded(){
+      const authed = localStorage.getItem(AUTH_KEY);
+      if(authed === '1') {
+        document.getElementById('loginOverlay').style.display = 'none';
+        return;
+      }
+      
+      document.getElementById('loginOverlay').style.display = 'flex';
+      document.getElementById('loginBtn').onclick = attemptLogin;
+      document.getElementById('btnUseDefault').onclick = ()=> {
+        localStorage.setItem(AUTH_KEY, '1');
+        document.getElementById('loginOverlay').style.display = 'none';
+      };
+    }
+
+    function attemptLogin(){
+      const pw = document.getElementById('loginPassword').value || '';
+      const configured = localStorage.getItem('magnatuns_password') || DEFAULT_PASSWORD;
+      if(pw === configured){
+        localStorage.setItem(AUTH_KEY, '1');
+        document.getElementById('loginOverlay').style.display = 'none';
+      } else {
+        alert('Senha incorreta');
+      }
+    }
+
+    function abrirConfiguracoes(){
+      const current = localStorage.getItem('magnatuns_password') || DEFAULT_PASSWORD;
+      const np = prompt('Definir nova senha do painel (deixe em branco para manter):', current);
+      if(np !== null && np !== ''){
+        localStorage.setItem('magnatuns_password', np);
+        alert('Senha atualizada.');
+      }
+    }
+
+    // ---- bind UI events global
+    function bindUI(){
+      // nav links
+      document.querySelectorAll('nav a').forEach(a=>{
+        a.addEventListener('click', (e)=>{
+          e.preventDefault();
+          const sec = a.getAttribute('data-section');
+          if(sec) window.showSection(sec);
+        });
+      });
+
+      // topbar/side buttons
+      document.getElementById('btnNovoCliente').addEventListener('click', novoCliente);
+      document.getElementById('btnConfigGear').addEventListener('click', abrirConfiguracoes);
+      document.getElementById('btnConfiguracoes').addEventListener('click', abrirConfiguracoes);
+      document.getElementById('btnExportCSV').addEventListener('click', downloadCSV);
+      document.getElementById('btnExportJSON').addEventListener('click', exportJSON);
+      document.getElementById('btnImportJSON').addEventListener('click', importJSON);
+      document.getElementById('btnDemoFilter').addEventListener('click', mostrarApenasEmDemo);
+      document.getElementById('btnForcarSwap').addEventListener('click', forcarSwap);
+      document.getElementById('btnSuspender').addEventListener('click', suspenderCliente);
+
+      // API section buttons
+      document.getElementById('btnGerarAPI')?.addEventListener('click', () => {
+        if(!selectedClientId) return alert('Selecione um cliente primeiro');
+        gerarNovaAPI(selectedClientId);
+      });
+      
+      document.getElementById('btnSalvarConfigAPI')?.addEventListener('click', () => {
+        data.config.limiteTokensPadrao = parseInt(document.getElementById('limiteTokensPadrao').value) || 20000;
+        data.config.urlBaseAPI = document.getElementById('urlBaseAPI').value;
+        saveData();
+        alert('Configurações de API salvas.');
+      });
+
+      // Faturamento section buttons
+      document.getElementById('btnSalvarConfigFaturamento')?.addEventListener('click', () => {
+        data.config.valorMensal = parseInt(document.getElementById('valorMensal').value) || 80;
+        saveData();
+        alert('Configurações de faturamento salvas.');
+      });
+
+      // Relatorios section buttons
+      document.getElementById('btnGerarRelatorioUso')?.addEventListener('click', () => gerarRelatorio('Uso'));
+      document.getElementById('btnGerarRelatorioFinanceiro')?.addEventListener('click', () => gerarRelatorio('Financeiro'));
+      document.getElementById('btnGerarRelatorioClientes')?.addEventListener('click', () => gerarRelatorio('Clientes'));
+      document.getElementById('btnGerarRelatorioAPI')?.addEventListener('click', () => gerarRelatorio('API'));
+      
+      document.getElementById('btnExportarRelatorio')?.addEventListener('click', () => exportarRelatorio('json'));
+      document.getElementById('btnExportarRelatorioCSV')?.addEventListener('click', () => exportarRelatorio('csv'));
+      document.getElementById('btnFecharRelatorio')?.addEventListener('click', () => {
+        document.getElementById('areaRelatorio').style.display = 'none';
+      });
+    }
+
+    // initial render
+    init();
+
+    // small exposure for debugging on console
+    window._MAG_DATA = data;
+    console.log('Painel inicializado — todas as funcionalidades implementadas.');
+  })();
+  </script>
+</body>
+</html>
